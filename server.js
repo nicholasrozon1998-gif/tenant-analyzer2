@@ -16,15 +16,13 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, model: MODEL, hasKey: !!process.env.ANTHROPIC_API_KEY });
 });
 
-// Body: { sections: { unit:[{name,mediaType,data}], tenant:[...], income:[...], credit:[...] } }
+// Body: { files: [{name,mediaType,data}], overrides?: { filename: category } }
 app.post('/api/analyze', async (req, res) => {
   try {
-    const sections = (req.body && req.body.sections) || {};
+    const body = req.body || {};
     const result = await analyzeApplication({
-      unit: sections.unit || [],
-      tenant: sections.tenant || [],
-      income: sections.income || [],
-      credit: sections.credit || []
+      files: body.files || [],
+      overrides: body.overrides || {}
     });
     res.json({ ok: true, result });
   } catch (e) {
