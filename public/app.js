@@ -168,15 +168,21 @@
 
     // Key metrics
     var m = r.keyMetrics;
+    var ex = r.extracted || {};
+    var employer = (ex.income && ex.income.employer) ||
+      (ex.tenant && ex.tenant.employment && ex.tenant.employment.employer) || 'N/A';
+    var lateP = (ex.credit && ex.credit.latePayments != null) ? ex.credit.latePayments : 'N/A';
+    var refName = (ex.tenant && ex.tenant.previousLandlord && ex.tenant.previousLandlord.name) || 'N/A';
+    var refPhone = (ex.tenant && ex.tenant.previousLandlord && ex.tenant.previousLandlord.phone) || 'N/A';
     var metrics = [
       ['Credit score', m.creditScore != null ? m.creditScore : 'N/A'],
-      ['Income-to-rent (net)', m.netIncomeToRent != null ? m.netIncomeToRent + '\u00d7' : 'N/A'],
-      ['Income-to-rent (gross)', m.grossIncomeToRent != null ? m.grossIncomeToRent + '\u00d7' : 'Unverified'],
-      ['Employment stability', m.employmentStability],
-      ['Credit utilization', m.debtIndicators.utilization != null ? m.debtIndicators.utilization + '%' : 'N/A'],
-      ['Monthly debt', m.debtIndicators.monthlyObligations != null ? '$' + m.debtIndicators.monthlyObligations : 'N/A'],
+      ['Net income-to-rent', m.netIncomeToRent != null ? m.netIncomeToRent + '\u00d7' : 'N/A'],
+      ['Gross income-to-rent', m.grossIncomeToRent != null ? m.grossIncomeToRent + '\u00d7' : 'Unverified'],
+      ['Employer', employer],
       ['Collections', m.debtIndicators.collections],
-      ['Rental history', m.rentalHistory]
+      ['Late payments', lateP],
+      ['Rental reference', refName],
+      ['Reference phone', refPhone]
     ];
     $('metrics').innerHTML = metrics.map(function (x) {
       return '<div class="metric"><span class="metric-k">' + x[0] + '</span><span class="metric-v">' + escapeHtml(String(x[1])) + '</span></div>';
@@ -201,10 +207,9 @@
   }
 
   var FIELD_LABELS = {
-    unit: { address: 'Address', unitNumber: 'Unit #', monthlyRent: 'Monthly rent', leaseStartDate: 'Lease start',
-      bedrooms: 'Bedrooms', bathrooms: 'Bathrooms', parking: 'Parking', utilitiesIncluded: 'Utilities' },
+    unit: { address: 'Address', unitNumber: 'Unit #', monthlyRent: 'Monthly rent' },
     tenant: { fullName: 'Full name', dateOfBirth: 'Date of birth', currentAddress: 'Current address', phone: 'Phone', email: 'Email' },
-    income: { employer: 'Employer', employmentStatus: 'Status', netMonthly: 'Net monthly', grossMonthly: 'Gross monthly',
+    income: { employer: 'Employer', netMonthly: 'Net monthly', grossMonthly: 'Gross monthly',
       payFrequency: 'Pay frequency', ytdEarnings: 'YTD earnings', derivedFrom: 'Derived from', stability: 'Stability' },
     credit: { creditScore: 'Credit score', collections: 'Collections', judgments: 'Judgments', consumerProposals: 'Proposals',
       bankruptcy: 'Bankruptcy', latePayments: 'Late payments', utilization: 'Utilization %', debtObligations: 'Monthly debt' }
@@ -239,23 +244,38 @@
     function block(title, rowsHtml) { return '<div class="pr-block"><h3>' + title + '</h3><table>' + rowsHtml + '</table></div>'; }
 
     var unit = ex.unit || {}, t = ex.tenant || {}, inc = ex.income || {}, cr = ex.credit || {};
+    var km = r.keyMetrics || {};
+    var employer = inc.employer || (t.employment && t.employment.employer) || null;
+    var lateP = (cr.latePayments != null) ? cr.latePayments : null;
+    var refName = (t.previousLandlord && t.previousLandlord.name) || null;
+    var refPhone = (t.previousLandlord && t.previousLandlord.phone) || null;
+    var collections = km.debtIndicators ? km.debtIndicators.collections : cr.collections;
     var html =
-      '<div class="pr-head"><div class="pr-brand">LR Gestion</div><div class="pr-sub">Tenant Screening Report</div>' +
+      '<div class="pr-head"><div class="pr-brand">AI Tenant Analyzer</div><div class="pr-sub">Tenant Screening Report</div>' +
         '<div class="pr-date">' + when + '</div></div>' +
       '<div class="pr-summary">' +
         '<div class="pr-decision pr-' + decisionClass(r.decision) + '">' + r.decision + '</div>' +
         '<div class="pr-score"><b>' + r.score.grade + '</b> &middot; ' + r.score.value + '/100 &middot; ' + r.score.confidence + '% confidence</div>' +
       '</div>' +
-      block('Unit information', kv('Address', unit.address) + kv('Unit #', unit.unitNumber) + kv('Monthly rent', unit.monthlyRent != null ? '$' + unit.monthlyRent : null) + kv('Lease start', unit.leaseStartDate) + kv('Bed / Bath', (unit.bedrooms != null ? unit.bedrooms : '—') + ' / ' + (unit.bathrooms != null ? unit.bathrooms : '—')) + kv('Parking', unit.parking) + kv('Utilities', unit.utilitiesIncluded)) +
-      block('Tenant information', kv('Full name', t.fullName) + kv('Date of birth', t.dateOfBirth) + kv('Current address', t.currentAddress) + kv('Phone', t.phone) + kv('Email', t.email) + kv('Previous landlord', t.previousLandlord && t.previousLandlord.name)) +
-      block('Income analysis', kv('Employer', inc.employer) + kv('Status', inc.employmentStatus) + kv('Net monthly', inc.netMonthly != null ? '$' + inc.netMonthly : null) + kv('Gross monthly', inc.grossMonthly != null ? '$' + inc.grossMonthly : 'Unverified') + kv('Pay frequency', inc.payFrequency) + kv('Derived from', inc.derivedFrom) + kv('Stability', inc.stability)) +
-      block('Credit analysis', kv('Credit score', cr.creditScore) + kv('Collections', cr.collections) + kv('Judgments', cr.judgments) + kv('Consumer proposals', cr.consumerProposals) + kv('Bankruptcy', cr.bankruptcy ? 'Yes' : 'No') + kv('Late payments', cr.latePayments) + kv('Utilization', cr.utilization != null ? cr.utilization + '%' : null)) +
+      block('Key metrics',
+        kv('Credit score', km.creditScore) +
+        kv('Net income-to-rent', km.netIncomeToRent != null ? km.netIncomeToRent + '\u00d7' : null) +
+        kv('Gross income-to-rent', km.grossIncomeToRent != null ? km.grossIncomeToRent + '\u00d7' : 'Unverified') +
+        kv('Employer', employer) +
+        kv('Collections', collections) +
+        kv('Late payments', lateP) +
+        kv('Rental reference name', refName) +
+        kv('Rental reference phone', refPhone)) +
+      block('Unit information', kv('Address', unit.address) + kv('Unit #', unit.unitNumber) + kv('Monthly rent', unit.monthlyRent != null ? '$' + unit.monthlyRent : null)) +
+      block('Tenant information', kv('Full name', t.fullName) + kv('Date of birth', t.dateOfBirth) + kv('Current address', t.currentAddress) + kv('Phone', t.phone) + kv('Email', t.email)) +
+      block('Income analysis', kv('Employer', inc.employer) + kv('Net monthly', inc.netMonthly != null ? '$' + inc.netMonthly : null) + kv('Gross monthly', inc.grossMonthly != null ? '$' + inc.grossMonthly : 'Unverified') + kv('Pay frequency', inc.payFrequency) + kv('YTD earnings', inc.ytdEarnings != null ? '$' + inc.ytdEarnings : null) + kv('Derived from', inc.derivedFrom) + kv('Stability', inc.stability)) +
+      block('Credit analysis', kv('Credit score', cr.creditScore) + kv('Collections', cr.collections) + kv('Judgments', cr.judgments) + kv('Consumer proposals', cr.consumerProposals) + kv('Bankruptcy', cr.bankruptcy ? 'Yes' : 'No') + kv('Late payments', cr.latePayments) + kv('Utilization', cr.utilization != null ? cr.utilization + '%' : null) + kv('Monthly debt', cr.debtObligations != null ? '$' + cr.debtObligations : null)) +
       '<div class="pr-block"><h3>Score breakdown</h3><table>' +
         kv('Credit (/40)', r.components.credit) + kv('Income (/40)', r.components.income) + kv('Stability (/20)', r.components.employment) + '</table></div>' +
       '<div class="pr-cols"><div class="pr-block"><h3>Red flags</h3>' + listHtml(r.redFlags, 'None detected') + '</div>' +
         '<div class="pr-block"><h3>Positive factors</h3>' + listHtml(r.positiveFactors, 'None') + '</div></div>' +
       '<div class="pr-block"><h3>Analyst summary</h3><p>' + escapeHtml(r.analystNotes) + '</p></div>' +
-      '<div class="pr-foot">Generated by LR Gestion AI Tenant Analyzer on ' + when + '. Decision-support only; subject to human review and fair-housing regulations.</div>';
+      '<div class="pr-foot">Generated by AI Tenant Analyzer on ' + when + '. Decision-support only; subject to human review and fair-housing regulations.</div>';
     $('print-report').innerHTML = html;
   }
 
