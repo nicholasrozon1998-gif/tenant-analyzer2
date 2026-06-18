@@ -21,11 +21,7 @@
 *{box-sizing:border-box}
 html,body{margin:0}
 body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;line-height:1.55;-webkit-font-smoothing:antialiased;position:relative;overflow-x:hidden}
-.bg-grid{position:fixed;inset:0;z-index:0;pointer-events:none;
-  background:radial-gradient(1100px 600px at 80% -8%,rgba(56,224,255,0.10),transparent 60%),
-  radial-gradient(900px 500px at -5% 110%,rgba(56,224,255,0.06),transparent 55%),
-  linear-gradient(transparent 95%,rgba(120,160,200,0.05) 96%) 0 0/100% 34px,
-  linear-gradient(90deg,transparent 95%,rgba(120,160,200,0.05) 96%) 0 0/34px 100%,var(--bg)}
+.bg-grid{position:fixed;inset:0;z-index:0;pointer-events:none;background:var(--bg)}
 
 .app-header{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:22px 32px;flex-wrap:wrap}
 .wordmark{font-family:var(--mono);font-weight:700;font-size:18px;letter-spacing:0.04em;display:flex;align-items:center;gap:12px;text-shadow:0 0 18px rgba(56,224,255,0.30)}
@@ -121,6 +117,25 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 .conf-bar span{display:block;height:100%;width:0;background:var(--accent);border-radius:6px;box-shadow:0 0 10px rgba(56,224,255,0.5);transition:width .9s ease}
 .meta-val{font-family:var(--mono);font-size:13px;color:var(--text)}
 
+.upload-single{margin-bottom:8px}
+.dropzone.big{padding:46px 24px;gap:10px}
+.dz-icon{width:40px;height:40px;color:var(--accent);margin-bottom:4px;filter:drop-shadow(0 0 8px rgba(56,224,255,0.4))}
+.dropzone.big .dz-text{font-size:16px}
+.dz-sub{font-size:12.5px;color:var(--text-faint);max-width:420px;text-align:center;line-height:1.5}
+.file-list.big{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+@media (max-width:600px){.file-list.big{grid-template-columns:1fr}}
+
+.detected-list{display:flex;flex-direction:column;gap:8px}
+.det-row{display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px}
+.det-row.det-unused{border-color:rgba(255,179,56,0.35);background:rgba(255,179,56,0.06)}
+.det-name{font-family:var(--mono);font-size:12.5px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.det-arrow{color:var(--text-faint);font-size:13px}
+.det-select{background:var(--surface);color:var(--text);border:1px solid var(--border-strong);border-radius:8px;padding:6px 10px;font-family:var(--sans);font-size:12.5px;cursor:pointer;outline:none}
+.det-select:focus-visible{box-shadow:0 0 0 3px var(--accent-soft)}
+.detected-actions{display:flex;align-items:center;gap:14px;margin-top:14px;flex-wrap:wrap}
+.detected-hint{font-size:12.5px;color:var(--amber)}
+
+.metric-v{word-break:break-word}
 .metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
 @media (max-width:760px){.metrics-grid{grid-template-columns:repeat(2,1fr)}}
 .metric{background:var(--surface-2);border-radius:var(--radius-sm);padding:12px 14px}
@@ -197,12 +212,19 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 
   <main class="wrap">
     <section class="intro">
-      <h1>Upload documents, then analyze</h1>
-      <p>Drop files into each section. Nothing is typed by hand — the analyzer reads every document, extracts the data, cross-references it, and scores the applicant.</p>
+      <h1>Drop your documents, then analyze</h1>
+      <p>Put everything in one place — listing, application, ID, pay stubs or bank statements, and the credit report, in any order. The analyzer figures out what each document is, extracts the data, cross-references it, and scores the applicant. Nothing is typed by hand.</p>
     </section>
 
-    <div class="sections" id="sections">
-      <!-- Section template is cloned by app.js; static markup below for the four sections -->
+    <div class="upload-single">
+      <label class="dropzone big" id="dropzone" tabindex="0">
+        <input type="file" multiple accept="image/*,.pdf" id="file-input" hidden />
+        <svg class="dz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M8 8l4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        <span class="dz-text"><b>Drop all documents here</b> or click to browse</span>
+        <span class="dz-sub">The analyzer sorts each file automatically — no sections to pick.</span>
+        <span class="dz-types">PDF, JPG, PNG &middot; multiple files</span>
+      </label>
+      <ul class="file-list big" id="file-list"></ul>
     </div>
 
     <div class="analyze-bar">
@@ -250,6 +272,15 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
         </div>
       </div>
 
+      <div class="card detected-card">
+        <span class="card-label">Detected documents</span>
+        <div class="detected-list" id="detected"></div>
+        <div class="detected-actions" id="detected-actions" hidden>
+          <span class="detected-hint">Document type changed — re-run to apply.</span>
+          <button id="reanalyze-btn" class="ghost-btn">Re-analyze with changes</button>
+        </div>
+      </div>
+
       <div class="card metrics-card">
         <span class="card-label">Key metrics</span>
         <div class="metrics-grid" id="metrics"></div>
@@ -286,7 +317,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
   <div id="print-report" class="print-report" aria-hidden="true"></div>
 
   <script>
-const DEMO_RESULT = {"demoMode":true,"generatedAt":"2026-06-18T13:33:56.046Z","extracted":{"unit":{"address":"128 Rue Principale, Gatineau, QC","unitNumber":"4B","monthlyRent":1850,"leaseStartDate":"2026-07-01","bedrooms":2,"bathrooms":1,"parking":"1 outdoor spot included","utilitiesIncluded":"Heat & water included; hydro extra","otherDetails":"Non-smoking, small pets allowed","quality":"high","_demo":true},"tenant":{"fullName":"Marie-Claude Tremblay","dateOfBirth":"1991-03-14","currentAddress":"57 Rue Laval, Gatineau, QC","phone":"(819) 555-0142","email":"mc.tremblay@example.com","previousLandlord":{"name":"Habitations Boucher","phone":"(819) 555-0199","tenancyLength":"3 years"},"employment":{"employer":"CISSS de l'Outaouais","position":"Registered Nurse","status":"full_time","years":4},"otherDetails":"No pets declared","quality":"high","_demo":true},"income":{"employer":"CISSS de l'Outaouais","employmentStatus":"full_time","netMonthly":4850,"grossMonthly":6400,"payFrequency":"biweekly","ytdEarnings":38400,"avgMonthlyDeposits":4900,"derivedFrom":"paystub","stability":"stable","riskFactors":[],"quality":"high","_demo":true},"credit":{"creditScore":728,"collections":0,"judgments":0,"consumerProposals":0,"bankruptcy":false,"latePayments":1,"utilization":22,"debtObligations":540,"concerns":[],"quality":"high","_demo":true}},"decision":"Approve","score":{"value":89,"grade":"B+","confidence":100},"components":{"credit":33,"income":37,"employment":19},"keyMetrics":{"creditScore":728,"netIncomeToRent":2.62,"grossIncomeToRent":3.46,"employmentStability":"Strong","debtIndicators":{"utilization":22,"monthlyObligations":540,"collections":0},"rentalHistory":"Reference: Habitations Boucher"},"redFlags":[],"positiveFactors":["Strong credit score (728)","Healthy income-to-rent ratio (2.6× net)","Stable, verified employment","No collections, bankruptcies, or proposals on file","Previous landlord reference available","Consistent income deposits"],"analystNotes":"Applicant assessed at grade B+ (89/100) under the internal scoring model. Credit score of 728. Net income covers rent 2.6× (required 2.0×). Reported employment tenure of 4 year(s). No material concerns detected. Recommendation: Approve. This is a decision-support summary requiring final human review and must remain consistent with fair-housing and applicable rental regulations.","missingDocuments":[],"inconsistencies":[]};
+const DEMO_RESULT = {"demoMode":true,"generatedAt":"2026-06-18T14:26:22.776Z","extracted":{"unit":{"address":"128 Rue Principale, Gatineau, QC","unitNumber":"4B","monthlyRent":1850,"leaseStartDate":"2026-07-01","bedrooms":2,"bathrooms":1,"parking":"1 outdoor spot included","utilitiesIncluded":"Heat & water included; hydro extra","otherDetails":"Non-smoking, small pets allowed","quality":"high","_demo":true},"tenant":{"fullName":"Marie-Claude Tremblay","dateOfBirth":"1991-03-14","currentAddress":"57 Rue Laval, Gatineau, QC","phone":"(819) 555-0142","email":"mc.tremblay@example.com","previousLandlord":{"name":"Habitations Boucher","phone":"(819) 555-0199","tenancyLength":"3 years"},"employment":{"employer":"CISSS de l'Outaouais","position":"Registered Nurse","status":"full_time","years":4},"otherDetails":"No pets declared","quality":"high","_demo":true},"income":{"employer":"CISSS de l'Outaouais","employmentStatus":"full_time","netMonthly":4850,"grossMonthly":6400,"payFrequency":"biweekly","ytdEarnings":38400,"avgMonthlyDeposits":4900,"derivedFrom":"paystub","stability":"stable","riskFactors":[],"quality":"high","_demo":true},"credit":{"creditScore":728,"collections":0,"judgments":0,"consumerProposals":0,"bankruptcy":false,"latePayments":1,"utilization":22,"debtObligations":540,"concerns":[],"quality":"high","_demo":true}},"decision":"Approve","score":{"value":89,"grade":"B+","confidence":100},"components":{"credit":33,"income":37,"employment":19},"keyMetrics":{"creditScore":728,"netIncomeToRent":2.62,"grossIncomeToRent":3.46,"employmentStability":"Strong","debtIndicators":{"utilization":22,"monthlyObligations":540,"collections":0},"rentalHistory":"Reference: Habitations Boucher"},"redFlags":[],"positiveFactors":["Strong credit score (728)","Healthy income-to-rent ratio (2.6× net)","Stable, verified employment","No collections, bankruptcies, or proposals on file","Previous landlord reference available","Consistent income deposits"],"analystNotes":"Applicant assessed at grade B+ (89/100) under the internal scoring model. Credit score of 728. Net income covers rent 2.6× (required 2.0×). Reported employment tenure of 4 year(s). No material concerns detected. Recommendation: Approve. This is a decision-support summary requiring final human review and must remain consistent with fair-housing and applicable rental regulations.","missingDocuments":[],"inconsistencies":[],"classification":[{"name":"listing-screenshot.png","category":"unit","extractedInto":"unit"},{"name":"rental-application.pdf","category":"tenant","extractedInto":"tenant"},{"name":"equifax-report.pdf","category":"credit","extractedInto":"credit"},{"name":"paystub-march.pdf","category":"income","extractedInto":"income"},{"name":"drivers-licence.jpg","category":"id","extractedInto":"tenant"}],"unclassified":[]};
 const __of = window.fetch ? window.fetch.bind(window) : null;
 window.fetch = function(url, opts){
   var u = String(url);
@@ -301,52 +332,39 @@ window.fetch = function(url, opts){
   var $ = function (id) { return document.getElementById(id); };
   var GAUGE_CIRC = 490;
 
-  var SECTIONS = [
-    { key: 'unit', title: 'Unit information', icon: 'M3 11l9-7 9 7v8a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
-      accepts: 'Unit photos, listing screenshots, lease details, property info' },
-    { key: 'tenant', title: 'Tenant information', icon: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-7 8a7 7 0 0 1 14 0z',
-      accepts: 'Rental application, government ID, additional tenant documents' },
-    { key: 'income', title: 'Tenant income', icon: 'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
-      accepts: 'Two pay stubs, OR 3 months bank statements, OR employment letter' },
-    { key: 'credit', title: 'Credit report', icon: 'M2 7h20v10H2zM2 11h20',
-      accepts: 'Equifax, TransUnion, or Beacon score report' }
+  var CATS = [
+    { key: 'unit', title: 'Unit information' },
+    { key: 'tenant', title: 'Tenant information' },
+    { key: 'income', title: 'Tenant income' },
+    { key: 'credit', title: 'Credit report' }
   ];
+  // Options shown in the per-document re-tag dropdown.
+  var CAT_OPTIONS = [
+    { v: 'unit', t: 'Unit / property' },
+    { v: 'tenant', t: 'Tenant / application' },
+    { v: 'income', t: 'Income' },
+    { v: 'credit', t: 'Credit report' },
+    { v: 'id', t: 'Government ID' },
+    { v: 'other', t: 'Other' }
+  ];
+  var CAT_TITLE = { unit: 'Unit / property', tenant: 'Tenant / application', income: 'Income', credit: 'Credit report', id: 'Government ID', other: 'Other' };
 
-  var state = { unit: [], tenant: [], income: [], credit: [] };
+  var state = { files: [], overrides: {} };
   var lastResult = null;
 
-  // ---- Build the four upload sections ----
-  function buildSections() {
-    var host = $('sections');
-    SECTIONS.forEach(function (s) {
-      var card = document.createElement('div');
-      card.className = 'upload-card';
-      card.innerHTML =
-        '<div class="uc-head">' +
-          '<svg class="uc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + s.icon + '"/></svg>' +
-          '<div><div class="uc-title">' + s.title + '</div><div class="uc-accepts">' + s.accepts + '</div></div>' +
-          '<span class="uc-status" data-status="' + s.key + '">Empty</span>' +
-        '</div>' +
-        '<label class="dropzone" data-zone="' + s.key + '" tabindex="0">' +
-          '<input type="file" multiple accept="image/*,.pdf" data-input="' + s.key + '" hidden />' +
-          '<span class="dz-text"><b>Drop files</b> or click to browse</span>' +
-          '<span class="dz-types">PDF, JPG, PNG</span>' +
-        '</label>' +
-        '<ul class="file-list" data-files="' + s.key + '"></ul>';
-      host.appendChild(card);
-
-      var input = card.querySelector('[data-input]');
-      var zone = card.querySelector('[data-zone]');
-      input.addEventListener('change', function (e) { addFiles(s.key, e.target.files); input.value = ''; });
-      zone.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
-      ['dragenter', 'dragover'].forEach(function (ev) {
-        zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.add('drag'); });
-      });
-      ['dragleave', 'drop'].forEach(function (ev) {
-        zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.remove('drag'); });
-      });
-      zone.addEventListener('drop', function (e) { addFiles(s.key, e.dataTransfer.files); });
+  // ---- Single drop zone ----
+  function buildDropzone() {
+    var zone = $('dropzone');
+    var input = $('file-input');
+    input.addEventListener('change', function (e) { addFiles(e.target.files); input.value = ''; });
+    zone.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
+    ['dragenter', 'dragover'].forEach(function (ev) {
+      zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.add('drag'); });
     });
+    ['dragleave', 'drop'].forEach(function (ev) {
+      zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.remove('drag'); });
+    });
+    zone.addEventListener('drop', function (e) { addFiles(e.dataTransfer.files); });
   }
 
   function readAsBase64(file) {
@@ -358,12 +376,12 @@ window.fetch = function(url, opts){
     });
   }
 
-  function addFiles(key, fileList) {
+  function addFiles(fileList) {
     var files = Array.prototype.slice.call(fileList || []);
     files.forEach(function (f) {
       readAsBase64(f).then(function (b64) {
-        state[key].push({ name: f.name, mediaType: f.type || guessType(f.name), data: b64 });
-        renderFiles(key);
+        state.files.push({ name: f.name, mediaType: f.type || guessType(f.name), data: b64 });
+        renderFileList();
         updateAnalyzeState();
       });
     });
@@ -379,33 +397,28 @@ window.fetch = function(url, opts){
     return 'application/octet-stream';
   }
 
-  function renderFiles(key) {
-    var ul = document.querySelector('[data-files="' + key + '"]');
+  function renderFileList() {
+    var ul = $('file-list');
     ul.innerHTML = '';
-    state[key].forEach(function (f, i) {
+    state.files.forEach(function (f, i) {
       var li = document.createElement('li');
       li.innerHTML = '<span class="fl-name">' + escapeHtml(f.name) + '</span>' +
         '<button class="fl-x" aria-label="Remove ' + escapeHtml(f.name) + '">&times;</button>';
       li.querySelector('.fl-x').addEventListener('click', function () {
-        state[key].splice(i, 1); renderFiles(key); updateAnalyzeState();
+        delete state.overrides[f.name];
+        state.files.splice(i, 1); renderFileList(); updateAnalyzeState();
       });
       ul.appendChild(li);
     });
-    var status = document.querySelector('[data-status="' + key + '"]');
-    var n = state[key].length;
-    status.textContent = n ? (n + ' file' + (n > 1 ? 's' : '')) : 'Empty';
-    status.classList.toggle('ready', n > 0);
   }
 
   function updateAnalyzeState() {
-    var total = SECTIONS.reduce(function (a, s) { return a + state[s.key].length; }, 0);
-    var emptySections = SECTIONS.filter(function (s) { return state[s.key].length === 0; });
+    var total = state.files.length;
     var btn = $('analyze-btn');
     btn.disabled = total === 0;
     var status = $('analyze-status');
     if (total === 0) status.textContent = 'No documents uploaded yet';
-    else if (emptySections.length) status.textContent = total + ' files \u00b7 still empty: ' + emptySections.map(function (s) { return s.title; }).join(', ');
-    else status.textContent = total + ' files across all four sections \u00b7 ready';
+    else status.textContent = total + ' document' + (total > 1 ? 's' : '') + ' ready \u00b7 the analyzer will sort them automatically';
   }
 
   // ---- Analyze ----
@@ -417,7 +430,7 @@ window.fetch = function(url, opts){
     fetch('/api/analyze', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ sections: state })
+      body: JSON.stringify({ files: state.files, overrides: state.overrides })
     }).then(function (r) { return r.json(); })
       .then(function (resp) {
         if (!resp.ok) throw new Error(resp.error || 'Analysis failed');
@@ -490,6 +503,7 @@ window.fetch = function(url, opts){
     fillList('positives', r.positiveFactors, 'No standout positive factors');
     $('analyst-notes').textContent = r.analystNotes;
 
+    renderDetected(r.classification, r.unclassified);
     renderExtracted(r.extracted);
     buildPrintReport(r);
 
@@ -515,10 +529,10 @@ window.fetch = function(url, opts){
 
   function renderExtracted(ex) {
     var host = $('extracted'); host.innerHTML = '';
-    SECTIONS.forEach(function (s) {
+    CATS.forEach(function (s) {
       var data = ex[s.key] || {};
       var rows = '';
-      if (data._missing) rows = '<div class="ex-row muted">No documents uploaded</div>';
+      if (data._missing) rows = '<div class="ex-row muted">No matching document detected</div>';
       else if (data._error) rows = '<div class="ex-row muted">Extraction error: ' + escapeHtml(data._error) + '</div>';
       else {
         var labels = FIELD_LABELS[s.key];
@@ -531,6 +545,35 @@ window.fetch = function(url, opts){
       }
       host.innerHTML += '<div class="ex-block"><div class="ex-title">' + s.title + '</div>' + rows + '</div>';
     });
+  }
+
+  // ---- Detected documents (auto-classification + re-tag) ----
+  function renderDetected(classification, unclassified) {
+    var host = $('detected'); host.innerHTML = '';
+    if (!classification || !classification.length) {
+      host.innerHTML = '<div class="det-row muted">No documents.</div>';
+      $('detected-actions').hidden = true;
+      return;
+    }
+    classification.forEach(function (c) {
+      var row = document.createElement('div');
+      row.className = 'det-row' + (c.extractedInto ? '' : ' det-unused');
+      var opts = CAT_OPTIONS.map(function (o) {
+        return '<option value="' + o.v + '"' + (o.v === c.category ? ' selected' : '') + '>' + o.t + '</option>';
+      }).join('');
+      row.innerHTML =
+        '<span class="det-name">' + escapeHtml(c.name) + '</span>' +
+        '<span class="det-arrow" aria-hidden="true">&rarr;</span>' +
+        '<select class="det-select" aria-label="Document type for ' + escapeHtml(c.name) + '">' + opts + '</select>';
+      var sel = row.querySelector('.det-select');
+      sel.addEventListener('change', function () {
+        if (sel.value === c.category) delete state.overrides[c.name];
+        else state.overrides[c.name] = sel.value;
+        $('detected-actions').hidden = Object.keys(state.overrides).length === 0;
+      });
+      host.appendChild(row);
+    });
+    $('detected-actions').hidden = Object.keys(state.overrides).length === 0;
   }
 
   // ---- Printable report (light) ----
@@ -602,9 +645,10 @@ window.fetch = function(url, opts){
 
   // ---- init ----
   document.addEventListener('DOMContentLoaded', function () {
-    buildSections();
+    buildDropzone();
     updateAnalyzeState();
     $('analyze-btn').addEventListener('click', analyze);
+    $('reanalyze-btn').addEventListener('click', analyze);
     $('pdf-btn').addEventListener('click', function () { window.print(); });
     fetch('/api/health').then(function (r) { return r.json(); }).then(function (h) {
       if (h && !h.hasKey) $('demo-banner').hidden = false;
@@ -615,16 +659,12 @@ window.fetch = function(url, opts){
 </script>
 <script>
 window.addEventListener('load', function(){
-  var samples = { unit:'listing-screenshot.png', tenant:'rental-application.pdf', income:'paystub-2.pdf', credit:'equifax-report.pdf' };
-  Object.keys(samples).forEach(function(k){
-    var ul = document.querySelector('[data-files="'+k+'"]');
-    if (ul) ul.innerHTML = '<li><span class="fl-name">'+samples[k]+'</span><button class="fl-x" aria-label="remove">&times;</button></li>';
-    var st = document.querySelector('[data-status="'+k+'"]');
-    if (st){ st.textContent='1 file'; st.classList.add('ready'); }
-  });
-  var btn = document.getElementById('analyze-btn');
+  var samples = ['listing-screenshot.png','rental-application.pdf','paystub-march.pdf','equifax-report.pdf','drivers-licence.jpg'];
+  var ul = document.getElementById('file-list');
+  if (ul) ul.innerHTML = samples.map(function(n){ return '<li><span class="fl-name">'+n+'</span><button class="fl-x" aria-label="remove">&times;</button></li>'; }).join('');
   var status = document.getElementById('analyze-status');
-  if (status) status.textContent = '4 files across all four sections · ready';
+  if (status) status.textContent = samples.length + ' documents ready \u00b7 the analyzer will sort them automatically';
+  var btn = document.getElementById('analyze-btn');
   if (btn){ btn.disabled = false; setTimeout(function(){ btn.click(); }, 150); }
 });
 </script>
