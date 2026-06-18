@@ -3,52 +3,39 @@
   var $ = function (id) { return document.getElementById(id); };
   var GAUGE_CIRC = 490;
 
-  var SECTIONS = [
-    { key: 'unit', title: 'Unit information', icon: 'M3 11l9-7 9 7v8a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
-      accepts: 'Unit photos, listing screenshots, lease details, property info' },
-    { key: 'tenant', title: 'Tenant information', icon: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-7 8a7 7 0 0 1 14 0z',
-      accepts: 'Rental application, government ID, additional tenant documents' },
-    { key: 'income', title: 'Tenant income', icon: 'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
-      accepts: 'Two pay stubs, OR 3 months bank statements, OR employment letter' },
-    { key: 'credit', title: 'Credit report', icon: 'M2 7h20v10H2zM2 11h20',
-      accepts: 'Equifax, TransUnion, or Beacon score report' }
+  var CATS = [
+    { key: 'unit', title: 'Unit information' },
+    { key: 'tenant', title: 'Tenant information' },
+    { key: 'income', title: 'Tenant income' },
+    { key: 'credit', title: 'Credit report' }
   ];
+  // Options shown in the per-document re-tag dropdown.
+  var CAT_OPTIONS = [
+    { v: 'unit', t: 'Unit / property' },
+    { v: 'tenant', t: 'Tenant / application' },
+    { v: 'income', t: 'Income' },
+    { v: 'credit', t: 'Credit report' },
+    { v: 'id', t: 'Government ID' },
+    { v: 'other', t: 'Other' }
+  ];
+  var CAT_TITLE = { unit: 'Unit / property', tenant: 'Tenant / application', income: 'Income', credit: 'Credit report', id: 'Government ID', other: 'Other' };
 
-  var state = { unit: [], tenant: [], income: [], credit: [] };
+  var state = { files: [], overrides: {} };
   var lastResult = null;
 
-  // ---- Build the four upload sections ----
-  function buildSections() {
-    var host = $('sections');
-    SECTIONS.forEach(function (s) {
-      var card = document.createElement('div');
-      card.className = 'upload-card';
-      card.innerHTML =
-        '<div class="uc-head">' +
-          '<svg class="uc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + s.icon + '"/></svg>' +
-          '<div><div class="uc-title">' + s.title + '</div><div class="uc-accepts">' + s.accepts + '</div></div>' +
-          '<span class="uc-status" data-status="' + s.key + '">Empty</span>' +
-        '</div>' +
-        '<label class="dropzone" data-zone="' + s.key + '" tabindex="0">' +
-          '<input type="file" multiple accept="image/*,.pdf" data-input="' + s.key + '" hidden />' +
-          '<span class="dz-text"><b>Drop files</b> or click to browse</span>' +
-          '<span class="dz-types">PDF, JPG, PNG</span>' +
-        '</label>' +
-        '<ul class="file-list" data-files="' + s.key + '"></ul>';
-      host.appendChild(card);
-
-      var input = card.querySelector('[data-input]');
-      var zone = card.querySelector('[data-zone]');
-      input.addEventListener('change', function (e) { addFiles(s.key, e.target.files); input.value = ''; });
-      zone.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
-      ['dragenter', 'dragover'].forEach(function (ev) {
-        zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.add('drag'); });
-      });
-      ['dragleave', 'drop'].forEach(function (ev) {
-        zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.remove('drag'); });
-      });
-      zone.addEventListener('drop', function (e) { addFiles(s.key, e.dataTransfer.files); });
+  // ---- Single drop zone ----
+  function buildDropzone() {
+    var zone = $('dropzone');
+    var input = $('file-input');
+    input.addEventListener('change', function (e) { addFiles(e.target.files); input.value = ''; });
+    zone.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
+    ['dragenter', 'dragover'].forEach(function (ev) {
+      zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.add('drag'); });
     });
+    ['dragleave', 'drop'].forEach(function (ev) {
+      zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.remove('drag'); });
+    });
+    zone.addEventListener('drop', function (e) { addFiles(e.dataTransfer.files); });
   }
 
   function readAsBase64(file) {
@@ -60,12 +47,12 @@
     });
   }
 
-  function addFiles(key, fileList) {
+  function addFiles(fileList) {
     var files = Array.prototype.slice.call(fileList || []);
     files.forEach(function (f) {
       readAsBase64(f).then(function (b64) {
-        state[key].push({ name: f.name, mediaType: f.type || guessType(f.name), data: b64 });
-        renderFiles(key);
+        state.files.push({ name: f.name, mediaType: f.type || guessType(f.name), data: b64 });
+        renderFileList();
         updateAnalyzeState();
       });
     });
@@ -81,33 +68,28 @@
     return 'application/octet-stream';
   }
 
-  function renderFiles(key) {
-    var ul = document.querySelector('[data-files="' + key + '"]');
+  function renderFileList() {
+    var ul = $('file-list');
     ul.innerHTML = '';
-    state[key].forEach(function (f, i) {
+    state.files.forEach(function (f, i) {
       var li = document.createElement('li');
       li.innerHTML = '<span class="fl-name">' + escapeHtml(f.name) + '</span>' +
         '<button class="fl-x" aria-label="Remove ' + escapeHtml(f.name) + '">&times;</button>';
       li.querySelector('.fl-x').addEventListener('click', function () {
-        state[key].splice(i, 1); renderFiles(key); updateAnalyzeState();
+        delete state.overrides[f.name];
+        state.files.splice(i, 1); renderFileList(); updateAnalyzeState();
       });
       ul.appendChild(li);
     });
-    var status = document.querySelector('[data-status="' + key + '"]');
-    var n = state[key].length;
-    status.textContent = n ? (n + ' file' + (n > 1 ? 's' : '')) : 'Empty';
-    status.classList.toggle('ready', n > 0);
   }
 
   function updateAnalyzeState() {
-    var total = SECTIONS.reduce(function (a, s) { return a + state[s.key].length; }, 0);
-    var emptySections = SECTIONS.filter(function (s) { return state[s.key].length === 0; });
+    var total = state.files.length;
     var btn = $('analyze-btn');
     btn.disabled = total === 0;
     var status = $('analyze-status');
     if (total === 0) status.textContent = 'No documents uploaded yet';
-    else if (emptySections.length) status.textContent = total + ' files \u00b7 still empty: ' + emptySections.map(function (s) { return s.title; }).join(', ');
-    else status.textContent = total + ' files across all four sections \u00b7 ready';
+    else status.textContent = total + ' document' + (total > 1 ? 's' : '') + ' ready \u00b7 the analyzer will sort them automatically';
   }
 
   // ---- Analyze ----
@@ -119,7 +101,7 @@
     fetch('/api/analyze', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ sections: state })
+      body: JSON.stringify({ files: state.files, overrides: state.overrides })
     }).then(function (r) { return r.json(); })
       .then(function (resp) {
         if (!resp.ok) throw new Error(resp.error || 'Analysis failed');
@@ -192,6 +174,7 @@
     fillList('positives', r.positiveFactors, 'No standout positive factors');
     $('analyst-notes').textContent = r.analystNotes;
 
+    renderDetected(r.classification, r.unclassified);
     renderExtracted(r.extracted);
     buildPrintReport(r);
 
@@ -217,10 +200,10 @@
 
   function renderExtracted(ex) {
     var host = $('extracted'); host.innerHTML = '';
-    SECTIONS.forEach(function (s) {
+    CATS.forEach(function (s) {
       var data = ex[s.key] || {};
       var rows = '';
-      if (data._missing) rows = '<div class="ex-row muted">No documents uploaded</div>';
+      if (data._missing) rows = '<div class="ex-row muted">No matching document detected</div>';
       else if (data._error) rows = '<div class="ex-row muted">Extraction error: ' + escapeHtml(data._error) + '</div>';
       else {
         var labels = FIELD_LABELS[s.key];
@@ -233,6 +216,35 @@
       }
       host.innerHTML += '<div class="ex-block"><div class="ex-title">' + s.title + '</div>' + rows + '</div>';
     });
+  }
+
+  // ---- Detected documents (auto-classification + re-tag) ----
+  function renderDetected(classification, unclassified) {
+    var host = $('detected'); host.innerHTML = '';
+    if (!classification || !classification.length) {
+      host.innerHTML = '<div class="det-row muted">No documents.</div>';
+      $('detected-actions').hidden = true;
+      return;
+    }
+    classification.forEach(function (c) {
+      var row = document.createElement('div');
+      row.className = 'det-row' + (c.extractedInto ? '' : ' det-unused');
+      var opts = CAT_OPTIONS.map(function (o) {
+        return '<option value="' + o.v + '"' + (o.v === c.category ? ' selected' : '') + '>' + o.t + '</option>';
+      }).join('');
+      row.innerHTML =
+        '<span class="det-name">' + escapeHtml(c.name) + '</span>' +
+        '<span class="det-arrow" aria-hidden="true">&rarr;</span>' +
+        '<select class="det-select" aria-label="Document type for ' + escapeHtml(c.name) + '">' + opts + '</select>';
+      var sel = row.querySelector('.det-select');
+      sel.addEventListener('change', function () {
+        if (sel.value === c.category) delete state.overrides[c.name];
+        else state.overrides[c.name] = sel.value;
+        $('detected-actions').hidden = Object.keys(state.overrides).length === 0;
+      });
+      host.appendChild(row);
+    });
+    $('detected-actions').hidden = Object.keys(state.overrides).length === 0;
   }
 
   // ---- Printable report (light) ----
@@ -289,9 +301,10 @@
 
   // ---- init ----
   document.addEventListener('DOMContentLoaded', function () {
-    buildSections();
+    buildDropzone();
     updateAnalyzeState();
     $('analyze-btn').addEventListener('click', analyze);
+    $('reanalyze-btn').addEventListener('click', analyze);
     $('pdf-btn').addEventListener('click', function () { window.print(); });
     fetch('/api/health').then(function (r) { return r.json(); }).then(function (h) {
       if (h && !h.hasKey) $('demo-banner').hidden = false;
