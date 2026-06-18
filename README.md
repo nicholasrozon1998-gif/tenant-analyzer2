@@ -1,4 +1,5 @@
-# LR Gestion — AI Tenant Analyzer
+[README.md](https://github.com/user-attachments/files/29096481/README.md)
+# AI Tenant Analyzer
 
 Document-driven tenant screening. Upload documents into four sections, click **Analyze
 application**, and get a scored recommendation plus a printable PDF report. No manual data entry.
@@ -31,10 +32,10 @@ Open http://localhost:3000
 - `server.js` — Express server: serves the UI and exposes `POST /api/analyze`.
 - `extraction.js` — sends documents to Claude for structured extraction, cross-references, and
   orchestrates scoring. Falls back to demo data when no key is present.
-- `scoring.js` — the deterministic LR Gestion scoring methodology. The model never decides the
+- `scoring.js` — the deterministic internal scoring model. The model never decides the
   score; it only supplies extracted inputs.
 
 ## PDF report
 
 Click **Generate PDF report** in the results page and use your browser's "Save as PDF". The
-report is white, ink-light, LR Gestion-branded, and includes a timestamp.
+report is white, ink-light, neutrally branded, and includes a timestamp.
