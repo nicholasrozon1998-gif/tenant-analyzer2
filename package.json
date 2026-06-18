@@ -1,8 +1,8 @@
 {
-  "name": "lr-gestion-tenant-analyzer",
+  "name": "ai-tenant-analyzer",
   "version": "2.0.0",
   "private": true,
-  "description": "LR Gestion AI Tenant Analyzer — document-driven tenant screening with automatic extraction and deterministic scoring.",
+  "description": "AI Tenant Analyzer — document-driven tenant screening with automatic extraction and deterministic scoring.",
   "engines": { "node": ">=18.17" },
   "scripts": {
     "start": "node server.js"
