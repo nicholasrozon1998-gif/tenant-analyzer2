@@ -1,5 +1,5 @@
 // extraction.js
-// Server-side document extraction + analysis orchestration for the LR Gestion Tenant Analyzer.
+// Server-side document extraction + analysis orchestration for the AI Tenant Analyzer.
 //
 //  * Sends each section's uploaded documents to Claude with a strict-JSON extraction prompt.
 //  * Falls back to clearly-labeled DEMO data when ANTHROPIC_API_KEY is not set, so the full
@@ -111,6 +111,77 @@ async function extractSection(section, files, hasKey) {
   }
 }
 
+// ---- Document classification (single drop zone) ---------------------------
+
+const CLASSIFY_PROMPT = `You are sorting rental tenant-screening documents. You will receive several documents in order. Classify EACH document as exactly one of these categories:
+- "unit": property/listing info, unit photos, listing screenshots, lease agreements, property details
+- "tenant": rental application, tenant information forms, landlord references
+- "income": pay stubs, bank statements, employment/job letters, any proof of income
+- "credit": Equifax / TransUnion / Beacon credit reports
+- "id": government photo ID (driver's licence, passport, health card)
+- "other": anything that fits none of the above
+Return ONLY a JSON array of strings, one per document, in the SAME ORDER as provided. Example for 3 documents: ["credit","income","id"]. No prose.`;
+
+const VALID_CATS = ['unit', 'tenant', 'income', 'credit', 'id', 'other'];
+
+function parseArray(text) {
+  if (!text) return [];
+  let t = text.trim().replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
+  const a = t.indexOf('['), b = t.lastIndexOf(']');
+  if (a !== -1 && b !== -1) t = t.slice(a, b + 1);
+  try { const arr = JSON.parse(t); return Array.isArray(arr) ? arr : []; } catch (e) { return []; }
+}
+
+async function callClaudeClassify(files) {
+  const content = [];
+  files.forEach(function (f, i) {
+    content.push({ type: 'text', text: 'Document ' + (i + 1) + ' (' + (f.name || 'unnamed') + '):' });
+    content.push(fileToBlock(f));
+  });
+  content.push({ type: 'text', text: CLASSIFY_PROMPT });
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': API_VERSION },
+    body: JSON.stringify({ model: MODEL, max_tokens: 400, messages: [{ role: 'user', content }] })
+  });
+  if (!res.ok) { const body = await res.text(); throw new Error('Classify ' + res.status + ': ' + body.slice(0, 200)); }
+  const data = await res.json();
+  const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+  return parseArray(text);
+}
+
+function heuristicCategory(name) {
+  const n = (name || '').toLowerCase();
+  if (/equifax|transunion|trans-union|beacon|credit[-_ ]?report|creditreport/.test(n)) return 'credit';
+  if (/paystub|pay[-_ ]?stub|payslip|pay[-_ ]?slip|bank|statement|deposit|income|employ|job[-_ ]?letter/.test(n)) return 'income';
+  if (/applic|tenant|reference|rental[-_ ]?app/.test(n)) return 'tenant';
+  if (/\bid\b|licen[cs]e|passport|health[-_ ]?card|identity/.test(n)) return 'id';
+  if (/listing|lease|property|unit|mls|rent/.test(n)) return 'unit';
+  return 'other';
+}
+
+// Returns [{ name, category }] for each file. Live mode uses Claude; demo mode uses a
+// filename heuristic. A manual override (filename -> category) always wins (used by re-tagging).
+async function classifyFiles(files, hasKey, overrides) {
+  overrides = overrides || {};
+  let cats;
+  if (!hasKey) {
+    cats = files.map(function (f) { return heuristicCategory(f.name); });
+  } else {
+    let labeled = [];
+    try { labeled = await callClaudeClassify(files); } catch (e) { labeled = []; }
+    cats = files.map(function (f, i) {
+      const c = (labeled[i] || '').toString().toLowerCase().trim();
+      return VALID_CATS.indexOf(c) !== -1 ? c : heuristicCategory(f.name);
+    });
+  }
+  return files.map(function (f, i) {
+    const ov = overrides[f.name];
+    const cat = (ov && VALID_CATS.indexOf(ov) !== -1) ? ov : cats[i];
+    return { name: f.name, category: cat };
+  });
+}
+
 // ---- Cross-reference + assembly -------------------------------------------
 
 function norm(s) { return (s || '').toString().trim().toLowerCase(); }
@@ -150,7 +221,7 @@ function buildPositives(score, unit, tenant, income, credit) {
 
 function buildAnalystNotes(decision, score, ratios, credit, employmentYears, redFlags) {
   const parts = [];
-  parts.push('Applicant assessed at grade ' + score.grade + ' (' + score.score + '/100) under the LR Gestion scoring methodology.');
+  parts.push('Applicant assessed at grade ' + score.grade + ' (' + score.score + '/100) under the internal scoring model.');
   if (credit && credit.creditScore != null) parts.push('Credit score of ' + credit.creditScore + '.');
   if (ratios.net != null) parts.push('Net income covers rent ' + ratios.net.toFixed(1) + '\u00d7 (required 2.0\u00d7).');
   if (employmentYears != null) parts.push('Reported employment tenure of ' + employmentYears + ' year(s).');
@@ -160,14 +231,30 @@ function buildAnalystNotes(decision, score, ratios, credit, employmentYears, red
   return parts.join(' ');
 }
 
-async function analyzeApplication(sections) {
+async function analyzeApplication(payload) {
   const hasKey = !!process.env.ANTHROPIC_API_KEY;
+  const files = (payload && payload.files) || [];
+  const overrides = (payload && payload.overrides) || {};
 
+  // 1) Classify every uploaded document (live: Claude reads them; demo: filename heuristic).
+  const classified = await classifyFiles(files, hasKey, overrides);
+
+  // 2) Group into extraction buckets. Government ID folds into tenant; "other" is tracked, not extracted.
+  const buckets = { unit: [], tenant: [], income: [], credit: [] };
+  const classification = [];
+  classified.forEach(function (c, i) {
+    const bucket = c.category === 'id' ? 'tenant' : c.category;
+    const into = buckets[bucket] ? bucket : null;
+    if (into) buckets[bucket].push(files[i]);
+    classification.push({ name: c.name, category: c.category, extractedInto: into });
+  });
+
+  // 3) Extract per bucket (unchanged extraction prompts), in parallel.
   const [unit, tenant, income, credit] = await Promise.all([
-    extractSection('unit', sections.unit, hasKey),
-    extractSection('tenant', sections.tenant, hasKey),
-    extractSection('income', sections.income, hasKey),
-    extractSection('credit', sections.credit, hasKey)
+    extractSection('unit', buckets.unit, hasKey),
+    extractSection('tenant', buckets.tenant, hasKey),
+    extractSection('income', buckets.income, hasKey),
+    extractSection('credit', buckets.credit, hasKey)
   ]);
 
   // Missing documents
@@ -253,7 +340,9 @@ async function analyzeApplication(sections) {
     positiveFactors: positives,
     analystNotes,
     missingDocuments: missing,
-    inconsistencies: xref.issues
+    inconsistencies: xref.issues,
+    classification: classification,
+    unclassified: classification.filter(function (c) { return !c.extractedInto; }).map(function (c) { return c.name; })
   };
 }
 
