@@ -26,12 +26,19 @@
 
   <main class="wrap">
     <section class="intro">
-      <h1>Upload documents, then analyze</h1>
-      <p>Drop files into each section. Nothing is typed by hand — the analyzer reads every document, extracts the data, cross-references it, and scores the applicant.</p>
+      <h1>Drop your documents, then analyze</h1>
+      <p>Put everything in one place — listing, application, ID, pay stubs or bank statements, and the credit report, in any order. The analyzer figures out what each document is, extracts the data, cross-references it, and scores the applicant. Nothing is typed by hand.</p>
     </section>
 
-    <div class="sections" id="sections">
-      <!-- Section template is cloned by app.js; static markup below for the four sections -->
+    <div class="upload-single">
+      <label class="dropzone big" id="dropzone" tabindex="0">
+        <input type="file" multiple accept="image/*,.pdf" id="file-input" hidden />
+        <svg class="dz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M8 8l4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        <span class="dz-text"><b>Drop all documents here</b> or click to browse</span>
+        <span class="dz-sub">The analyzer sorts each file automatically — no sections to pick.</span>
+        <span class="dz-types">PDF, JPG, PNG &middot; multiple files</span>
+      </label>
+      <ul class="file-list big" id="file-list"></ul>
     </div>
 
     <div class="analyze-bar">
@@ -76,6 +83,15 @@
               <span id="conf-val" class="meta-val">—%</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div class="card detected-card">
+        <span class="card-label">Detected documents</span>
+        <div class="detected-list" id="detected"></div>
+        <div class="detected-actions" id="detected-actions" hidden>
+          <span class="detected-hint">Document type changed — re-run to apply.</span>
+          <button id="reanalyze-btn" class="ghost-btn">Re-analyze with changes</button>
         </div>
       </div>
 
