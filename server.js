@@ -1,4 +1,4 @@
-// server.js — LR Gestion Tenant Analyzer backend.
+// server.js — AI Tenant Analyzer backend.
 // Serves the static UI and exposes POST /api/analyze, which runs document extraction
 // (real with ANTHROPIC_API_KEY, demo data without) and the deterministic scoring engine.
 
@@ -34,6 +34,6 @@ app.post('/api/analyze', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log('LR Gestion Tenant Analyzer running at http://localhost:' + PORT);
+  console.log('AI Tenant Analyzer running at http://localhost:' + PORT);
   console.log('Extraction mode:', process.env.ANTHROPIC_API_KEY ? ('LIVE (' + MODEL + ')') : 'DEMO (no ANTHROPIC_API_KEY set)');
 });
