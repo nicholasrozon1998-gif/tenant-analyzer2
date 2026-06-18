@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LR Gestion — AI Tenant Analyzer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <style>
+:root{
+  --bg:#070a0f;--surface:rgba(20,27,38,0.72);--surface-2:rgba(28,37,52,0.55);
+  --border:rgba(120,160,200,0.12);--border-strong:rgba(56,189,248,0.35);
+  --text:#e8eef6;--text-dim:#8b9bb0;--text-faint:#5d6b7e;
+  --accent:#38e0ff;--accent-2:#22d3ee;--accent-soft:rgba(56,224,255,0.12);
+  --green:#3ee089;--amber:#ffb338;--red:#ff5d6c;
+  --radius:14px;--radius-sm:10px;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:"Inter",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;line-height:1.55;-webkit-font-smoothing:antialiased;position:relative;overflow-x:hidden}
+.bg-grid{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(1100px 600px at 80% -8%,rgba(56,224,255,0.10),transparent 60%),
+  radial-gradient(900px 500px at -5% 110%,rgba(56,224,255,0.06),transparent 55%),
+  linear-gradient(transparent 95%,rgba(120,160,200,0.05) 96%) 0 0/100% 34px,
+  linear-gradient(90deg,transparent 95%,rgba(120,160,200,0.05) 96%) 0 0/34px 100%,var(--bg)}
+
+.app-header{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:22px 32px;flex-wrap:wrap}
+.wordmark{font-family:var(--mono);font-weight:700;font-size:18px;letter-spacing:0.04em;display:flex;align-items:center;gap:12px;text-shadow:0 0 18px rgba(56,224,255,0.30)}
+.wordmark-sub{color:var(--text-dim);font-weight:500;font-size:14px;letter-spacing:0.02em}
+.wordmark-dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent),0 0 22px rgba(56,224,255,0.6)}
+.header-tag{font-size:12px;color:var(--text-faint)}
+
+.demo-banner{position:relative;z-index:2;max-width:1100px;margin:0 auto 4px;padding:10px 18px;border-radius:var(--radius-sm);
+  background:rgba(255,179,56,0.10);border:1px solid rgba(255,179,56,0.35);color:#ffd58a;font-size:13px}
+.demo-banner code{font-family:var(--mono);color:#ffe7b0}
+
+.wrap{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:14px 28px 48px}
+.intro h1{font-size:24px;font-weight:600;margin:8px 0 6px}
+.intro p{color:var(--text-dim);font-size:14px;margin:0 0 22px;max-width:680px}
+
+.sections{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media (max-width:760px){.sections{grid-template-columns:1fr}.app-header{padding:18px 20px}}
+
+.upload-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 18px 16px;backdrop-filter:blur(14px);box-shadow:0 20px 50px rgba(0,0,0,0.4)}
+.uc-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px}
+.uc-icon{width:26px;height:26px;color:var(--accent);flex:0 0 auto;margin-top:2px;filter:drop-shadow(0 0 6px rgba(56,224,255,0.4))}
+.uc-title{font-size:15px;font-weight:600}
+.uc-accepts{font-size:11.5px;color:var(--text-faint);margin-top:2px;line-height:1.45}
+.uc-status{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--text-faint);border:1px solid var(--border);padding:3px 9px;border-radius:999px;white-space:nowrap}
+.uc-status.ready{color:var(--accent);border-color:var(--border-strong);background:var(--accent-soft)}
+
+.dropzone{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;text-align:center;
+  border:1.5px dashed rgba(120,160,200,0.25);border-radius:var(--radius-sm);padding:22px 14px;cursor:pointer;
+  background:var(--surface-2);transition:all .18s ease;outline:none}
+.dropzone:hover,.dropzone:focus-visible{border-color:var(--border-strong);background:rgba(28,37,52,0.85);box-shadow:0 0 0 3px var(--accent-soft)}
+.dropzone.drag{border-color:var(--accent);background:rgba(56,224,255,0.07);box-shadow:0 0 22px rgba(56,224,255,0.18) inset}
+.dz-text{font-size:13px;color:var(--text-dim)}.dz-text b{color:var(--text);font-weight:600}
+.dz-types{font-family:var(--mono);font-size:10.5px;color:var(--text-faint);letter-spacing:0.08em}
+
+.file-list{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.file-list li{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12.5px}
+.fl-name{font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;color:var(--text-dim)}
+.fl-x{margin-left:auto;background:transparent;border:0;color:var(--text-faint);font-size:18px;line-height:1;cursor:pointer;padding:0 2px}
+.fl-x:hover{color:var(--red)}
+
+.analyze-bar{display:flex;align-items:center;gap:16px;margin:26px 0 8px;flex-wrap:wrap}
+.analyze-status{font-size:13px;color:var(--text-dim);flex:1;min-width:200px}
+.analyze-btn{position:relative;overflow:hidden;min-width:230px;height:52px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);
+  background:linear-gradient(180deg,rgba(56,224,255,0.18),rgba(56,224,255,0.06));color:var(--text);font-family:var(--sans);font-size:15px;font-weight:600;
+  cursor:pointer;transition:transform .12s ease,box-shadow .2s ease,opacity .2s ease;box-shadow:0 0 22px rgba(56,224,255,0.12);display:flex;align-items:center;justify-content:center;gap:10px}
+.analyze-btn:hover:not(:disabled){box-shadow:0 0 30px rgba(56,224,255,0.32)}
+.analyze-btn:active:not(:disabled){transform:scale(.985)}
+.analyze-btn:disabled{opacity:0.45;cursor:not-allowed}
+.btn-glow{position:absolute;inset:0;background:radial-gradient(140px 60px at 50% 50%,rgba(56,224,255,0.22),transparent 70%);opacity:0;transition:opacity .2s}
+.analyze-btn:hover:not(:disabled) .btn-glow{opacity:1}
+.btn-spinner{display:none;width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+.analyze-btn.loading .btn-spinner{display:inline-block}
+.analyze-btn.loading .btn-label{opacity:0.8}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Results */
+.results{margin-top:34px;animation:fade .35s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.results-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.results-head h2{font-size:18px;font-weight:600;margin:0}
+.ghost-btn{display:inline-flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border-strong);color:var(--text);
+  border-radius:var(--radius-sm);padding:10px 16px;font-size:13.5px;font-weight:500;cursor:pointer;transition:box-shadow .2s}
+.ghost-btn:hover{box-shadow:0 0 18px rgba(56,224,255,0.25)}
+.ghost-btn i{width:14px;height:14px;border:1.5px solid currentColor;border-radius:3px;display:inline-block;position:relative}
+.ghost-btn i::after{content:"";position:absolute;left:3px;top:6px;width:6px;height:2px;background:currentColor;box-shadow:0 3px 0 currentColor}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;backdrop-filter:blur(14px);margin-bottom:16px}
+.card-label{display:block;font-family:var(--mono);font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:var(--accent-2);margin-bottom:12px;opacity:0.85}
+.card-label.flag{color:var(--amber)}.card-label.good{color:var(--green)}
+
+.result-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.result-grid{grid-template-columns:1fr}.two-col{grid-template-columns:1fr!important}}
+.decision-card{display:flex;flex-direction:column}
+.decision-pill{align-self:flex-start;font-family:var(--mono);font-weight:700;font-size:16px;letter-spacing:0.03em;padding:12px 20px;border-radius:999px;border:1px solid var(--border);background:var(--accent-soft);color:var(--accent);margin-bottom:12px}
+.decision-pill.approve{color:var(--green);background:rgba(62,224,137,0.12);border-color:rgba(62,224,137,0.4)}
+.decision-pill.conditions{color:var(--amber);background:rgba(255,179,56,0.12);border-color:rgba(255,179,56,0.4)}
+.decision-pill.review{color:var(--amber);background:rgba(255,179,56,0.12);border-color:rgba(255,179,56,0.4)}
+.decision-pill.decline{color:var(--red);background:rgba(255,93,108,0.12);border-color:rgba(255,93,108,0.4)}
+.decision-explain{font-size:13px;color:var(--text-dim);margin:0;line-height:1.6}
+
+.score-inner{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.gauge{position:relative;width:140px;height:140px;flex:0 0 auto}
+.gauge svg{width:140px;height:140px;display:block}
+.gauge-track{fill:none;stroke:rgba(120,160,200,0.14);stroke-width:11}
+.gauge-fill{fill:none;stroke:var(--accent);stroke-width:11;stroke-linecap:round;stroke-dasharray:490;stroke-dashoffset:490;
+  transition:stroke-dashoffset 1s cubic-bezier(.2,.7,.2,1),stroke .4s ease;filter:drop-shadow(0 0 6px rgba(56,224,255,0.55))}
+.gauge-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.grade{font-family:var(--mono);font-weight:700;font-size:36px;line-height:1;color:var(--accent);text-shadow:0 0 20px rgba(56,224,255,0.5)}
+.score-num{font-family:var(--mono);font-size:12px;color:var(--text-dim)}.score-num b{color:var(--text)}.score-num i{font-style:normal;color:var(--text-faint)}
+.conf{flex:1;min-width:140px}
+.meta-label{font-size:12px;color:var(--text-dim)}
+.conf-bar{height:6px;border-radius:6px;background:rgba(120,160,200,0.14);overflow:hidden;margin:8px 0 6px}
+.conf-bar span{display:block;height:100%;width:0;background:var(--accent);border-radius:6px;box-shadow:0 0 10px rgba(56,224,255,0.5);transition:width .9s ease}
+.meta-val{font-family:var(--mono);font-size:13px;color:var(--text)}
+
+.metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media (max-width:760px){.metrics-grid{grid-template-columns:repeat(2,1fr)}}
+.metric{background:var(--surface-2);border-radius:var(--radius-sm);padding:12px 14px}
+.metric-k{display:block;font-size:11.5px;color:var(--text-faint);margin-bottom:6px}
+.metric-v{font-family:var(--mono);font-size:16px;font-weight:500;color:var(--text)}
+
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.bullet-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.bullet-list li{font-size:13px;color:var(--text-dim);padding-left:18px;position:relative;line-height:1.5}
+.bullet-list li::before{content:"";position:absolute;left:2px;top:7px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.flags-card .bullet-list li::before{background:var(--amber)}
+.pos-card .bullet-list li::before{background:var(--green)}
+.bullet-list li.muted{color:var(--text-faint)}.bullet-list li.muted::before{background:var(--text-faint)}
+
+.notes-card p{font-size:13.5px;color:var(--text-dim);line-height:1.7;margin:0}
+
+.extracted-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.extracted-grid{grid-template-columns:1fr}}
+.ex-block{background:var(--surface-2);border-radius:var(--radius-sm);padding:14px 16px}
+.ex-title{font-size:13px;font-weight:600;color:var(--accent-2);margin-bottom:10px}
+.ex-row{display:flex;justify-content:space-between;gap:12px;font-size:12.5px;padding:4px 0;border-bottom:1px solid var(--border)}
+.ex-row:last-child{border-bottom:0}.ex-row span{color:var(--text-faint)}.ex-row b{color:var(--text);font-weight:500;text-align:right}
+.ex-row.muted{color:var(--text-faint);justify-content:flex-start}
+
+.app-footer{position:relative;z-index:1;text-align:center;color:var(--text-faint);font-size:11.5px;padding:8px 24px 34px;max-width:760px;margin:0 auto;line-height:1.6}
+
+/* Printable report — hidden on screen */
+.print-report{display:none}
+
+@media print{
+  @page{size:A4;margin:14mm}
+  .bg-grid,.app-header,.demo-banner,.wrap,.app-footer{display:none!important}
+  body{background:#fff;color:#1a2230}
+  .print-report{display:block;font-family:var(--sans);color:#1a2230}
+  .pr-head{display:flex;align-items:baseline;gap:12px;border-bottom:2px solid #1d6fb8;padding-bottom:10px;margin-bottom:14px}
+  .pr-brand{font-family:var(--mono);font-weight:700;font-size:22px;color:#0c447c;letter-spacing:0.04em}
+  .pr-sub{font-size:14px;color:#46566a}
+  .pr-date{margin-left:auto;font-size:11px;color:#6b7a8d}
+  .pr-summary{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+  .pr-decision{font-weight:700;font-size:15px;padding:8px 16px;border-radius:6px;border:1.5px solid;}
+  .pr-approve{color:#1f7a43;border-color:#1f7a43;background:#eafaf0}
+  .pr-conditions,.pr-review{color:#9a6400;border-color:#caa01e;background:#fff7e6}
+  .pr-decline{color:#a32d2d;border-color:#a32d2d;background:#fdeeee}
+  .pr-score{font-family:var(--mono);font-size:14px;color:#28384a}.pr-score b{font-size:18px;color:#0c447c}
+  .pr-block{margin-bottom:13px;break-inside:avoid}
+  .pr-block h3{font-size:12px;text-transform:uppercase;letter-spacing:0.08em;color:#1d6fb8;border-bottom:1px solid #d7e3ee;padding-bottom:4px;margin:0 0 6px}
+  .pr-block table{width:100%;border-collapse:collapse;font-size:11.5px}
+  .pr-block td{padding:3px 6px;vertical-align:top}
+  .pr-block td:first-child{color:#5a6b7e;width:40%}.pr-block td:last-child{color:#1a2230;font-weight:500}
+  .pr-cols{display:flex;gap:18px}.pr-cols .pr-block{flex:1}
+  .pr-block ul{margin:4px 0 0;padding-left:16px;font-size:11.5px}.pr-block li{margin:2px 0}
+  .pr-muted{color:#8493a3;font-size:11.5px;margin:4px 0 0}
+  .pr-block p{font-size:11.5px;line-height:1.6;margin:0}
+  .pr-foot{margin-top:16px;border-top:1px solid #d7e3ee;padding-top:8px;font-size:9.5px;color:#8493a3}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+</style>
+</head>
+<body>
+  <div class="bg-grid" aria-hidden="true"></div>
+
+  <header class="app-header">
+    <div class="wordmark">
+      <span class="wordmark-dot" aria-hidden="true"></span>
+      LR&nbsp;Gestion <span class="wordmark-sub">/ AI Tenant Analyzer</span>
+    </div>
+    <span class="header-tag">Decision support &middot; requires human review</span>
+  </header>
+
+  <div id="demo-banner" class="demo-banner" hidden>
+    Demo mode — showing sample extracted data. Set <code>ANTHROPIC_API_KEY</code> to extract from your real documents.
+  </div>
+
+  <main class="wrap">
+    <section class="intro">
+      <h1>Upload documents, then analyze</h1>
+      <p>Drop files into each section. Nothing is typed by hand — the analyzer reads every document, extracts the data, cross-references it, and scores the applicant.</p>
+    </section>
+
+    <div class="sections" id="sections">
+      <!-- Section template is cloned by app.js; static markup below for the four sections -->
+    </div>
+
+    <div class="analyze-bar">
+      <div class="analyze-status" id="analyze-status">No documents uploaded yet</div>
+      <button id="analyze-btn" class="analyze-btn" disabled>
+        <span class="btn-glow" aria-hidden="true"></span>
+        <span class="btn-label">Analyze application</span>
+        <span class="btn-spinner" aria-hidden="true"></span>
+      </button>
+    </div>
+
+    <!-- RESULTS -->
+    <section id="results" class="results" hidden aria-live="polite">
+      <div class="results-head">
+        <h2>Analysis result</h2>
+        <button id="pdf-btn" class="ghost-btn"><i></i>Generate PDF report</button>
+      </div>
+
+      <div class="result-grid">
+        <div class="card decision-card">
+          <span class="card-label">Overall decision</span>
+          <div class="decision-pill" id="decision">—</div>
+          <p class="decision-explain" id="analyst-notes-short"></p>
+        </div>
+
+        <div class="card score-card">
+          <span class="card-label">Risk score</span>
+          <div class="score-inner">
+            <div class="gauge">
+              <svg viewBox="0 0 180 180" role="img" aria-label="Risk score gauge">
+                <circle class="gauge-track" cx="90" cy="90" r="78"></circle>
+                <circle class="gauge-fill" id="gauge-fill" cx="90" cy="90" r="78" transform="rotate(-90 90 90)"></circle>
+              </svg>
+              <div class="gauge-center">
+                <span class="grade" id="grade">—</span>
+                <span class="score-num"><b id="score-val">0</b><i>/100</i></span>
+              </div>
+            </div>
+            <div class="conf">
+              <span class="meta-label">Confidence</span>
+              <div class="conf-bar"><span id="conf-fill"></span></div>
+              <span id="conf-val" class="meta-val">—%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card metrics-card">
+        <span class="card-label">Key metrics</span>
+        <div class="metrics-grid" id="metrics"></div>
+      </div>
+
+      <div class="two-col">
+        <div class="card flags-card">
+          <span class="card-label flag">Red flags</span>
+          <ul id="red-flags" class="bullet-list"></ul>
+        </div>
+        <div class="card pos-card">
+          <span class="card-label good">Positive factors</span>
+          <ul id="positives" class="bullet-list"></ul>
+        </div>
+      </div>
+
+      <div class="card notes-card">
+        <span class="card-label">Analyst notes</span>
+        <p id="analyst-notes"></p>
+      </div>
+
+      <div class="card extracted-card">
+        <span class="card-label">Extracted data</span>
+        <div class="extracted-grid" id="extracted"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    LR Gestion AI Tenant Analyzer &middot; Results are recommendations for a human analyst and must remain consistent with fair-housing and applicable rental regulations.
+  </footer>
+
+  <!-- Printable, light-themed report (hidden on screen, shown on print) -->
+  <div id="print-report" class="print-report" aria-hidden="true"></div>
+
+  <script>
+const DEMO_RESULT = {"demoMode":true,"generatedAt":"2026-06-18T12:34:33.681Z","extracted":{"unit":{"address":"128 Rue Principale, Gatineau, QC","unitNumber":"4B","monthlyRent":1850,"leaseStartDate":"2026-07-01","bedrooms":2,"bathrooms":1,"parking":"1 outdoor spot included","utilitiesIncluded":"Heat & water included; hydro extra","otherDetails":"Non-smoking, small pets allowed","quality":"high","_demo":true},"tenant":{"fullName":"Marie-Claude Tremblay","dateOfBirth":"1991-03-14","currentAddress":"57 Rue Laval, Gatineau, QC","phone":"(819) 555-0142","email":"mc.tremblay@example.com","previousLandlord":{"name":"Habitations Boucher","phone":"(819) 555-0199","tenancyLength":"3 years"},"employment":{"employer":"CISSS de l'Outaouais","position":"Registered Nurse","status":"full_time","years":4},"otherDetails":"No pets declared","quality":"high","_demo":true},"income":{"employer":"CISSS de l'Outaouais","employmentStatus":"full_time","netMonthly":4850,"grossMonthly":6400,"payFrequency":"biweekly","ytdEarnings":38400,"avgMonthlyDeposits":4900,"derivedFrom":"paystub","stability":"stable","riskFactors":[],"quality":"high","_demo":true},"credit":{"creditScore":728,"collections":0,"judgments":0,"consumerProposals":0,"bankruptcy":false,"latePayments":1,"utilization":22,"debtObligations":540,"concerns":[],"quality":"high","_demo":true}},"decision":"Approve","score":{"value":89,"grade":"B+","confidence":100},"components":{"credit":33,"income":37,"employment":19},"keyMetrics":{"creditScore":728,"netIncomeToRent":2.62,"grossIncomeToRent":3.46,"employmentStability":"Strong","debtIndicators":{"utilization":22,"monthlyObligations":540,"collections":0},"rentalHistory":"Reference: Habitations Boucher"},"redFlags":[],"positiveFactors":["Strong credit score (728)","Healthy income-to-rent ratio (2.6× net)","Stable, verified employment","No collections, bankruptcies, or proposals on file","Previous landlord reference available","Consistent income deposits"],"analystNotes":"Applicant assessed at grade B+ (89/100) under the LR Gestion scoring methodology. Credit score of 728. Net income covers rent 2.6× (required 2.0×). Reported employment tenure of 4 year(s). No material concerns detected. Recommendation: Approve. This is a decision-support summary requiring final human review and must remain consistent with fair-housing and applicable rental regulations.","missingDocuments":[],"inconsistencies":[]};
+const __of = window.fetch ? window.fetch.bind(window) : null;
+window.fetch = function(url, opts){
+  var u = String(url);
+  if (u.indexOf('/api/health') !== -1) return Promise.resolve({ json: function(){ return Promise.resolve({ ok:true, hasKey:false, model:'claude-sonnet-4-6' }); } });
+  if (u.indexOf('/api/analyze') !== -1) return Promise.resolve({ json: function(){ return Promise.resolve({ ok:true, result: DEMO_RESULT }); } });
+  return __of ? __of(url, opts) : Promise.reject(new Error('offline preview'));
+};
+</script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var GAUGE_CIRC = 490;
+
+  var SECTIONS = [
+    { key: 'unit', title: 'Unit information', icon: 'M3 11l9-7 9 7v8a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+      accepts: 'Unit photos, listing screenshots, lease details, property info' },
+    { key: 'tenant', title: 'Tenant information', icon: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-7 8a7 7 0 0 1 14 0z',
+      accepts: 'Rental application, government ID, additional tenant documents' },
+    { key: 'income', title: 'Tenant income', icon: 'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
+      accepts: 'Two pay stubs, OR 3 months bank statements, OR employment letter' },
+    { key: 'credit', title: 'Credit report', icon: 'M2 7h20v10H2zM2 11h20',
+      accepts: 'Equifax, TransUnion, or Beacon score report' }
+  ];
+
+  var state = { unit: [], tenant: [], income: [], credit: [] };
+  var lastResult = null;
+
+  // ---- Build the four upload sections ----
+  function buildSections() {
+    var host = $('sections');
+    SECTIONS.forEach(function (s) {
+      var card = document.createElement('div');
+      card.className = 'upload-card';
+      card.innerHTML =
+        '<div class="uc-head">' +
+          '<svg class="uc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + s.icon + '"/></svg>' +
+          '<div><div class="uc-title">' + s.title + '</div><div class="uc-accepts">' + s.accepts + '</div></div>' +
+          '<span class="uc-status" data-status="' + s.key + '">Empty</span>' +
+        '</div>' +
+        '<label class="dropzone" data-zone="' + s.key + '" tabindex="0">' +
+          '<input type="file" multiple accept="image/*,.pdf" data-input="' + s.key + '" hidden />' +
+          '<span class="dz-text"><b>Drop files</b> or click to browse</span>' +
+          '<span class="dz-types">PDF, JPG, PNG</span>' +
+        '</label>' +
+        '<ul class="file-list" data-files="' + s.key + '"></ul>';
+      host.appendChild(card);
+
+      var input = card.querySelector('[data-input]');
+      var zone = card.querySelector('[data-zone]');
+      input.addEventListener('change', function (e) { addFiles(s.key, e.target.files); input.value = ''; });
+      zone.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
+      ['dragenter', 'dragover'].forEach(function (ev) {
+        zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.add('drag'); });
+      });
+      ['dragleave', 'drop'].forEach(function (ev) {
+        zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.remove('drag'); });
+      });
+      zone.addEventListener('drop', function (e) { addFiles(s.key, e.dataTransfer.files); });
+    });
+  }
+
+  function readAsBase64(file) {
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onload = function () { resolve(String(r.result).split(',')[1]); };
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+  }
+
+  function addFiles(key, fileList) {
+    var files = Array.prototype.slice.call(fileList || []);
+    files.forEach(function (f) {
+      readAsBase64(f).then(function (b64) {
+        state[key].push({ name: f.name, mediaType: f.type || guessType(f.name), data: b64 });
+        renderFiles(key);
+        updateAnalyzeState();
+      });
+    });
+  }
+
+  function guessType(name) {
+    var ext = name.split('.').pop().toLowerCase();
+    if (ext === 'pdf') return 'application/pdf';
+    if (ext === 'png') return 'image/png';
+    if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+    if (ext === 'gif') return 'image/gif';
+    if (ext === 'webp') return 'image/webp';
+    return 'application/octet-stream';
+  }
+
+  function renderFiles(key) {
+    var ul = document.querySelector('[data-files="' + key + '"]');
+    ul.innerHTML = '';
+    state[key].forEach(function (f, i) {
+      var li = document.createElement('li');
+      li.innerHTML = '<span class="fl-name">' + escapeHtml(f.name) + '</span>' +
+        '<button class="fl-x" aria-label="Remove ' + escapeHtml(f.name) + '">&times;</button>';
+      li.querySelector('.fl-x').addEventListener('click', function () {
+        state[key].splice(i, 1); renderFiles(key); updateAnalyzeState();
+      });
+      ul.appendChild(li);
+    });
+    var status = document.querySelector('[data-status="' + key + '"]');
+    var n = state[key].length;
+    status.textContent = n ? (n + ' file' + (n > 1 ? 's' : '')) : 'Empty';
+    status.classList.toggle('ready', n > 0);
+  }
+
+  function updateAnalyzeState() {
+    var total = SECTIONS.reduce(function (a, s) { return a + state[s.key].length; }, 0);
+    var emptySections = SECTIONS.filter(function (s) { return state[s.key].length === 0; });
+    var btn = $('analyze-btn');
+    btn.disabled = total === 0;
+    var status = $('analyze-status');
+    if (total === 0) status.textContent = 'No documents uploaded yet';
+    else if (emptySections.length) status.textContent = total + ' files \u00b7 still empty: ' + emptySections.map(function (s) { return s.title; }).join(', ');
+    else status.textContent = total + ' files across all four sections \u00b7 ready';
+  }
+
+  // ---- Analyze ----
+  function analyze() {
+    var btn = $('analyze-btn');
+    btn.classList.add('loading'); btn.disabled = true;
+    $('analyze-status').textContent = 'Reading documents and scoring\u2026';
+
+    fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ sections: state })
+    }).then(function (r) { return r.json(); })
+      .then(function (resp) {
+        if (!resp.ok) throw new Error(resp.error || 'Analysis failed');
+        lastResult = resp.result;
+        renderResult(resp.result);
+      })
+      .catch(function (err) {
+        $('analyze-status').textContent = 'Error: ' + err.message;
+      })
+      .finally(function () {
+        btn.classList.remove('loading'); btn.disabled = false; updateAnalyzeState();
+      });
+  }
+
+  function decisionClass(d) {
+    if (d === 'Approve') return 'approve';
+    if (d === 'Approve with Conditions') return 'conditions';
+    if (d === 'Decline') return 'decline';
+    return 'review';
+  }
+  function gradeColor(g) {
+    if (g === 'A+' || g === 'A') return 'var(--green)';
+    if (g === 'B+' || g === 'B') return 'var(--accent)';
+    if (g === 'C+' || g === 'C') return 'var(--amber)';
+    return 'var(--red)';
+  }
+
+  function renderResult(r) {
+    $('demo-banner').hidden = !r.demoMode;
+    $('results').hidden = false;
+
+    $('decision').textContent = r.decision;
+    $('decision').className = 'decision-pill ' + decisionClass(r.decision);
+    $('analyst-notes-short').textContent = firstSentence(r.analystNotes);
+
+    var color = gradeColor(r.score.grade);
+    var grade = $('grade'); grade.textContent = r.score.grade; grade.style.color = color;
+    $('score-val').textContent = r.score.value;
+    var fill = $('gauge-fill'); fill.style.stroke = color;
+    fill.style.strokeDashoffset = GAUGE_CIRC;
+    requestAnimationFrame(function () { requestAnimationFrame(function () {
+      fill.style.strokeDashoffset = GAUGE_CIRC * (1 - r.score.value / 100);
+    }); });
+    $('conf-val').textContent = r.score.confidence + '%';
+    requestAnimationFrame(function () { $('conf-fill').style.width = r.score.confidence + '%'; });
+
+    // Key metrics
+    var m = r.keyMetrics;
+    var metrics = [
+      ['Credit score', m.creditScore != null ? m.creditScore : 'N/A'],
+      ['Income-to-rent (net)', m.netIncomeToRent != null ? m.netIncomeToRent + '\u00d7' : 'N/A'],
+      ['Income-to-rent (gross)', m.grossIncomeToRent != null ? m.grossIncomeToRent + '\u00d7' : 'Unverified'],
+      ['Employment stability', m.employmentStability],
+      ['Credit utilization', m.debtIndicators.utilization != null ? m.debtIndicators.utilization + '%' : 'N/A'],
+      ['Monthly debt', m.debtIndicators.monthlyObligations != null ? '
+</body>
+</html>
+ + m.debtIndicators.monthlyObligations : 'N/A'],
+      ['Collections', m.debtIndicators.collections],
+      ['Rental history', m.rentalHistory]
+    ];
+    $('metrics').innerHTML = metrics.map(function (x) {
+      return '<div class="metric"><span class="metric-k">' + x[0] + '</span><span class="metric-v">' + escapeHtml(String(x[1])) + '</span></div>';
+    }).join('');
+
+    fillList('red-flags', r.redFlags, 'No red flags detected');
+    fillList('positives', r.positiveFactors, 'No standout positive factors');
+    $('analyst-notes').textContent = r.analystNotes;
+
+    renderExtracted(r.extracted);
+    buildPrintReport(r);
+
+    $('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function fillList(id, items, emptyMsg) {
+    var ul = $(id); ul.innerHTML = '';
+    if (!items || !items.length) {
+      var li = document.createElement('li'); li.className = 'muted'; li.textContent = emptyMsg; ul.appendChild(li); return;
+    }
+    items.forEach(function (t) { var li = document.createElement('li'); li.textContent = t; ul.appendChild(li); });
+  }
+
+  var FIELD_LABELS = {
+    unit: { address: 'Address', unitNumber: 'Unit #', monthlyRent: 'Monthly rent', leaseStartDate: 'Lease start',
+      bedrooms: 'Bedrooms', bathrooms: 'Bathrooms', parking: 'Parking', utilitiesIncluded: 'Utilities' },
+    tenant: { fullName: 'Full name', dateOfBirth: 'Date of birth', currentAddress: 'Current address', phone: 'Phone', email: 'Email' },
+    income: { employer: 'Employer', employmentStatus: 'Status', netMonthly: 'Net monthly', grossMonthly: 'Gross monthly',
+      payFrequency: 'Pay frequency', ytdEarnings: 'YTD earnings', derivedFrom: 'Derived from', stability: 'Stability' },
+    credit: { creditScore: 'Credit score', collections: 'Collections', judgments: 'Judgments', consumerProposals: 'Proposals',
+      bankruptcy: 'Bankruptcy', latePayments: 'Late payments', utilization: 'Utilization %', debtObligations: 'Monthly debt' }
+  };
+
+  function renderExtracted(ex) {
+    var host = $('extracted'); host.innerHTML = '';
+    SECTIONS.forEach(function (s) {
+      var data = ex[s.key] || {};
+      var rows = '';
+      if (data._missing) rows = '<div class="ex-row muted">No documents uploaded</div>';
+      else if (data._error) rows = '<div class="ex-row muted">Extraction error: ' + escapeHtml(data._error) + '</div>';
+      else {
+        var labels = FIELD_LABELS[s.key];
+        Object.keys(labels).forEach(function (k) {
+          var v = data[k];
+          if (v === null || v === undefined || v === '') v = '—';
+          if (typeof v === 'boolean') v = v ? 'Yes' : 'No';
+          rows += '<div class="ex-row"><span>' + labels[k] + '</span><b>' + escapeHtml(String(v)) + '</b></div>';
+        });
+      }
+      host.innerHTML += '<div class="ex-block"><div class="ex-title">' + s.title + '</div>' + rows + '</div>';
+    });
+  }
+
+  // ---- Printable report (light) ----
+  function buildPrintReport(r) {
+    var d = new Date(r.generatedAt);
+    var when = d.toLocaleString();
+    var ex = r.extracted;
+    function kv(label, val) { return '<tr><td>' + label + '</td><td>' + escapeHtml(val == null || val === '' ? '—' : String(val)) + '</td></tr>'; }
+    function block(title, rowsHtml) { return '<div class="pr-block"><h3>' + title + '</h3><table>' + rowsHtml + '</table></div>'; }
+
+    var unit = ex.unit || {}, t = ex.tenant || {}, inc = ex.income || {}, cr = ex.credit || {};
+    var html =
+      '<div class="pr-head"><div class="pr-brand">LR Gestion</div><div class="pr-sub">Tenant Screening Report</div>' +
+        '<div class="pr-date">' + when + '</div></div>' +
+      '<div class="pr-summary">' +
+        '<div class="pr-decision pr-' + decisionClass(r.decision) + '">' + r.decision + '</div>' +
+        '<div class="pr-score"><b>' + r.score.grade + '</b> &middot; ' + r.score.value + '/100 &middot; ' + r.score.confidence + '% confidence</div>' +
+      '</div>' +
+      block('Unit information', kv('Address', unit.address) + kv('Unit #', unit.unitNumber) + kv('Monthly rent', unit.monthlyRent != null ? '
+</body>
+</html>
+ + unit.monthlyRent : null) + kv('Lease start', unit.leaseStartDate) + kv('Bed / Bath', (unit.bedrooms != null ? unit.bedrooms : '—') + ' / ' + (unit.bathrooms != null ? unit.bathrooms : '—')) + kv('Parking', unit.parking) + kv('Utilities', unit.utilitiesIncluded)) +
+      block('Tenant information', kv('Full name', t.fullName) + kv('Date of birth', t.dateOfBirth) + kv('Current address', t.currentAddress) + kv('Phone', t.phone) + kv('Email', t.email) + kv('Previous landlord', t.previousLandlord && t.previousLandlord.name)) +
+      block('Income analysis', kv('Employer', inc.employer) + kv('Status', inc.employmentStatus) + kv('Net monthly', inc.netMonthly != null ? '
+</body>
+</html>
+ + inc.netMonthly : null) + kv('Gross monthly', inc.grossMonthly != null ? '
+</body>
+</html>
+ + inc.grossMonthly : 'Unverified') + kv('Pay frequency', inc.payFrequency) + kv('Derived from', inc.derivedFrom) + kv('Stability', inc.stability)) +
+      block('Credit analysis', kv('Credit score', cr.creditScore) + kv('Collections', cr.collections) + kv('Judgments', cr.judgments) + kv('Consumer proposals', cr.consumerProposals) + kv('Bankruptcy', cr.bankruptcy ? 'Yes' : 'No') + kv('Late payments', cr.latePayments) + kv('Utilization', cr.utilization != null ? cr.utilization + '%' : null)) +
+      '<div class="pr-block"><h3>Score breakdown</h3><table>' +
+        kv('Credit (/40)', r.components.credit) + kv('Income (/40)', r.components.income) + kv('Stability (/20)', r.components.employment) + '</table></div>' +
+      '<div class="pr-cols"><div class="pr-block"><h3>Red flags</h3>' + listHtml(r.redFlags, 'None detected') + '</div>' +
+        '<div class="pr-block"><h3>Positive factors</h3>' + listHtml(r.positiveFactors, 'None') + '</div></div>' +
+      '<div class="pr-block"><h3>Analyst summary</h3><p>' + escapeHtml(r.analystNotes) + '</p></div>' +
+      '<div class="pr-foot">Generated by LR Gestion AI Tenant Analyzer on ' + when + '. Decision-support only; subject to human review and fair-housing regulations.</div>';
+    $('print-report').innerHTML = html;
+  }
+
+  function listHtml(items, empty) {
+    if (!items || !items.length) return '<p class="pr-muted">' + empty + '</p>';
+    return '<ul>' + items.map(function (i) { return '<li>' + escapeHtml(i) + '</li>'; }).join('') + '</ul>';
+  }
+
+  function firstSentence(s) { if (!s) return ''; var i = s.indexOf('. '); return i === -1 ? s : s.slice(0, i + 1); }
+  function escapeHtml(s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
+
+  // ---- init ----
+  document.addEventListener('DOMContentLoaded', function () {
+    buildSections();
+    updateAnalyzeState();
+    $('analyze-btn').addEventListener('click', analyze);
+    $('pdf-btn').addEventListener('click', function () { window.print(); });
+    fetch('/api/health').then(function (r) { return r.json(); }).then(function (h) {
+      if (h && !h.hasKey) $('demo-banner').hidden = false;
+    }).catch(function () {});
+  });
+})();
+
+</script>
+<script>
+window.addEventListener('load', function(){
+  var samples = { unit:'listing-screenshot.png', tenant:'rental-application.pdf', income:'paystub-2.pdf', credit:'equifax-report.pdf' };
+  Object.keys(samples).forEach(function(k){
+    var ul = document.querySelector('[data-files="'+k+'"]');
+    if (ul) ul.innerHTML = '<li><span class="fl-name">'+samples[k]+'</span><button class="fl-x" aria-label="remove">&times;</button></li>';
+    var st = document.querySelector('[data-status="'+k+'"]');
+    if (st){ st.textContent='1 file'; st.classList.add('ready'); }
+  });
+  var btn = document.getElementById('analyze-btn');
+  var status = document.getElementById('analyze-status');
+  if (status) status.textContent = '4 files across all four sections · ready';
+  if (btn){ btn.disabled = false; setTimeout(function(){ btn.click(); }, 150); }
+});
+</script>
+</body>
+</html>

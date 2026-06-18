@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LR Gestion — AI Tenant Analyzer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg-grid" aria-hidden="true"></div>
+
+  <header class="app-header">
+    <div class="wordmark">
+      <span class="wordmark-dot" aria-hidden="true"></span>
+      LR&nbsp;Gestion <span class="wordmark-sub">/ AI Tenant Analyzer</span>
+    </div>
+    <span class="header-tag">Decision support &middot; requires human review</span>
+  </header>
+
+  <div id="demo-banner" class="demo-banner" hidden>
+    Demo mode — showing sample extracted data. Set <code>ANTHROPIC_API_KEY</code> to extract from your real documents.
+  </div>
+
+  <main class="wrap">
+    <section class="intro">
+      <h1>Upload documents, then analyze</h1>
+      <p>Drop files into each section. Nothing is typed by hand — the analyzer reads every document, extracts the data, cross-references it, and scores the applicant.</p>
+    </section>
+
+    <div class="sections" id="sections">
+      <!-- Section template is cloned by app.js; static markup below for the four sections -->
+    </div>
+
+    <div class="analyze-bar">
+      <div class="analyze-status" id="analyze-status">No documents uploaded yet</div>
+      <button id="analyze-btn" class="analyze-btn" disabled>
+        <span class="btn-glow" aria-hidden="true"></span>
+        <span class="btn-label">Analyze application</span>
+        <span class="btn-spinner" aria-hidden="true"></span>
+      </button>
+    </div>
+
+    <!-- RESULTS -->
+    <section id="results" class="results" hidden aria-live="polite">
+      <div class="results-head">
+        <h2>Analysis result</h2>
+        <button id="pdf-btn" class="ghost-btn"><i></i>Generate PDF report</button>
+      </div>
+
+      <div class="result-grid">
+        <div class="card decision-card">
+          <span class="card-label">Overall decision</span>
+          <div class="decision-pill" id="decision">—</div>
+          <p class="decision-explain" id="analyst-notes-short"></p>
+        </div>
+
+        <div class="card score-card">
+          <span class="card-label">Risk score</span>
+          <div class="score-inner">
+            <div class="gauge">
+              <svg viewBox="0 0 180 180" role="img" aria-label="Risk score gauge">
+                <circle class="gauge-track" cx="90" cy="90" r="78"></circle>
+                <circle class="gauge-fill" id="gauge-fill" cx="90" cy="90" r="78" transform="rotate(-90 90 90)"></circle>
+              </svg>
+              <div class="gauge-center">
+                <span class="grade" id="grade">—</span>
+                <span class="score-num"><b id="score-val">0</b><i>/100</i></span>
+              </div>
+            </div>
+            <div class="conf">
+              <span class="meta-label">Confidence</span>
+              <div class="conf-bar"><span id="conf-fill"></span></div>
+              <span id="conf-val" class="meta-val">—%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card metrics-card">
+        <span class="card-label">Key metrics</span>
+        <div class="metrics-grid" id="metrics"></div>
+      </div>
+
+      <div class="two-col">
+        <div class="card flags-card">
+          <span class="card-label flag">Red flags</span>
+          <ul id="red-flags" class="bullet-list"></ul>
+        </div>
+        <div class="card pos-card">
+          <span class="card-label good">Positive factors</span>
+          <ul id="positives" class="bullet-list"></ul>
+        </div>
+      </div>
+
+      <div class="card notes-card">
+        <span class="card-label">Analyst notes</span>
+        <p id="analyst-notes"></p>
+      </div>
+
+      <div class="card extracted-card">
+        <span class="card-label">Extracted data</span>
+        <div class="extracted-grid" id="extracted"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    LR Gestion AI Tenant Analyzer &middot; Results are recommendations for a human analyst and must remain consistent with fair-housing and applicable rental regulations.
+  </footer>
+
+  <!-- Printable, light-themed report (hidden on screen, shown on print) -->
+  <div id="print-report" class="print-report" aria-hidden="true"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
